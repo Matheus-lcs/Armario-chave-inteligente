@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db import connection
-from .utils import buscar_status_nichos_banco
+from .utils import buscar_status_nicho_banco
 
 
 def dictfetchall(cursor):
@@ -29,13 +29,13 @@ def status_nicho_view(request):
         cursor.execute("SELECT * FROM vw_status_nichoview")
 
         # 2. Transformação
-        dados_nichos = dictfetchall(cursor)
+        dados_nicho = dictfetchall(cursor)
 
     # 3. Resposta
-    return JsonResponse({'nichos': dados_nichos}, safe=False)
+    return JsonResponse({'nicho': dados_nicho}, safe=False)
 
 
-def api_status_nichos(request):
+def api_status_nicho(request):
 
-    nichos = buscar_status_nichos_banco()
-    return JsonResponse(nichos, safe=False, status=200)
+    nicho = buscar_status_nicho_banco()
+    return JsonResponse(nicho, safe=False, status=200)
