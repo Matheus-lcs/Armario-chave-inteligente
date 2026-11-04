@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Monitoramento de Espaços | Key Track</title>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        background: #f1f4f8;
+        color: #1e293b;
+        padding: 30px;
+      }
+
+      header {
+        margin-bottom: 30px;
+      }
+
+      header h1 {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+
+      header p {
+        color: #64748b;
+      }
+
+      .resumo {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 18px;
+        margin-bottom: 30px;
+      }
+
+      .indicador {
+        background: white;
+        padding: 22px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px #0000000a;
+      }
+
+      .indicador h3 {
+        font-size: 14px;
+        color: #64748b;
+        margin-bottom: 12px;
+      }
+
+      .indicador strong {
+        font-size: 30px;
+      }
+
+      .grade-espacos {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: white;
+        border-radius: 12px;
+        padding: 22px;
+        border-left: 6px solid #94a3b8;
+        box-shadow: 0 3px 10px #0000000a;
+      }
+
+      .card.ocupado {
+        border-left-color: #ef4444;
+      }
+
+      .card.disponivel {
+        border-left-color: #22c55e;
+      }
+
+      .card h2 {
+        font-size: 19px;
+        margin-bottom: 12px;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 18px;
+      }
+
+      .status.ocupado {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      .status.disponivel {
+        background: #dcfce7;
+        color: #15803d;
+      }
+
+      .informacoes p {
+        margin-bottom: 10px;
+        font-size: 14px;
+        color: #475569;
+      }
+
+      .informacoes strong {
+        color: #1e293b;
+      }
+
+      #mensagem {
+        margin: 15px 0;
+        font-size: 14px;
+        color: #64748b;
+      }
+
+      .erro {
+        color: #dc2626 !important;
+      }
+
+      .vazio {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        color: #64748b;
+        text-align: center;
+      }
+
+      footer {
+        margin-top: 30px;
+        color: #64748b;
+        font-size: 13px;
+        text-align: center;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>Key Track | Monitoramento</h1>
+      <p>Acompanhamento em tempo real dos espaços e chaves.</p>
+    </header>
+
+    <section class="resumo">
+      <div class="indicador">
+        <h3>Total de espaços</h3>
+        <strong id="total">0</strong>
+      </div>
+
+      <div class="indicador">
+        <h3>Disponíveis</h3>
+        <strong id="disponiveis">0</strong>
+      </div>
+
+      <div class="indicador">
+        <h3>Ocupados</h3>
+        <strong id="ocupados">0</strong>
+      </div>
+    </section>
+
+    <div id="mensagem">Carregando informações...</div>
+
+    <main id="grade-espacos" class="grade-espacos"></main>
+
+    <footer>
+      Atualização automática a cada 5 segundos.
+      <br />
+      Última atualização: <span id="ultima-atualizacao">--</span>
+    </footer>
+
+    <script>
+      const API_URL = "/api/status-espacos";
+
+      let ultimoConteudo = null;
+      let atualizando = false;
+
+      function escaparHTML(valor) {
+        return String(valor ?? "").replace(
+          /[&<>"']/g,
+          (caractere) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#039;",
+            })[caractere],
+        );
+      }
+
+      function formatarData(data) {
+        if (!data) return "--";
+
+        const partes = String(data).split("-");
+
+        if (partes.length !== 3) return data;
+
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+      }
+
+      function formatarHorario(horario) {
+        if (!horario) return "--";
+
+        return String(horario).substring(0, 5);
+      }
+
+      function renderizarEspacos(espacos) {
+        const grade = document.getElementById("grade-espacos");
+
+        let disponiveis = 0;
+        let ocupados = 0;
+
+        espacos.forEach((espaco) => {
+          if (String(espaco.status).toLowerCase() === "disponivel") {
+            disponiveis++;
+          } else if (String(espaco.status).toLowerCase() === "ocupado") {
+            ocupados++;
+          }
+        });
+
+        document.getElementById("total").textContent = espacos.length;
+        document.getElementById("disponiveis").textContent = disponiveis;
+        document.getElementById("ocupados").textContent = ocupados;
+
+        if (espacos.length === 0) {
+          grade.innerHTML = `
+                    <div class="vazio">
+                        Nenhum espaço encontrado.
+                    </div>
+                `;
+          return;
+        }
+
+        grade.innerHTML = espacos
+          .map((espaco) => {
+            const status = String(espaco.status || "").toLowerCase();
+            const ocupado = status === "ocupado";
+
+            const classe = ocupado ? "ocupado" : "disponivel";
+
+            return `
+                    <article class="card ${classe}">
+
+                        <h2>
+                            ${escaparHTML(espaco.nome_sala)}
+                        </h2>
+
+                        <span class="status ${classe}">
+                            ${escaparHTML(espaco.status)}
+                        </span>
+
+                        <div class="informacoes">
+
+                            <p>
+                                <strong>Chave:</strong>
+                                ${escaparHTML(espaco.num_chave)}
+                            </p>
+
+                            <p>
+                                <strong>Docente:</strong>
+                                ${escaparHTML(espaco.docente_nome || "--")}
+                            </p>
+
+                            <p>
+                                <strong>Data da retirada:</strong>
+                                ${escaparHTML(formatarData(espaco.data_retirada))}
+                            </p>
+
+                            <p>
+                                <strong>Horário da retirada:</strong>
+                                ${escaparHTML(formatarHorario(espaco.horario_retirada))}
+                            </p>
+
+                            <p>
+                                <strong>Horário previsto:</strong>
+                                ${escaparHTML(formatarHorario(espaco.horario_previsto))}
+                            </p>
+
+                        </div>
+
+                    </article>
+                `;
+          })
+          .join("");
+      }
+
+      async function consultarStatus() {
+        if (atualizando) return;
+
+        atualizando = true;
+
+        const mensagem = document.getElementById("mensagem");
+
+        try {
+          const resposta = await fetch(API_URL, {
+            method: "GET",
+            cache: "no-store",
+          });
+
+          if (!resposta.ok) {
+            throw new Error(`Erro HTTP ${resposta.status}`);
+          }
+
+          const resultado = await resposta.json();
+
+          if (resultado.status !== "sucesso") {
+            throw new Error(resultado.mensagem || "Erro ao consultar API.");
+          }
+
+          const espacos = resultado.status_espacos || [];
+
+          const novoConteudo = JSON.stringify(espacos);
+
+          // Atualiza os elementos somente se houver mudança.
+          if (novoConteudo !== ultimoConteudo) {
+            renderizarEspacos(espacos);
+
+            ultimoConteudo = novoConteudo;
+
+            console.log("Status dos espaços atualizado.");
+          }
+
+          mensagem.textContent = "Sistema conectado. Monitoramento ativo.";
+          mensagem.classList.remove("erro");
+
+          document.getElementById("ultima-atualizacao").textContent =
+            new Date().toLocaleTimeString("pt-BR");
+        } catch (erro) {
+          console.error("Erro ao consultar espaços:", erro);
+
+          mensagem.textContent =
+            "Falha na comunicação com a API: " + erro.message;
+
+          mensagem.classList.add("erro");
+        } finally {
+          atualizando = false;
+        }
+      }
+
+      // Primeira consulta ao abrir a página.
+      consultarStatus();
+
+      // Nova consulta a cada 5 segundos.
+      setInterval(consultarStatus, 5000);
+    </script>
+  </body>
+</html>

@@ -2,6 +2,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from .utils import buscar_status_nicho_banco
+from django.shortcuts import render
 
 
 def index(request):
@@ -41,3 +42,7 @@ def api_status_nicho(request):
             {'erro': str(erro)},
             status=500,
         )
+
+
+def painel_status_espacos(request):
+    return render(request, "status_espacos.html")

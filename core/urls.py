@@ -14,4 +14,9 @@ urlpatterns = [
         views.api_status_nicho,
         name="api_status_nicho",
     ),
+    path(
+        "status_espacos/",
+        views.painel_status_espacos,
+        name="painel_status_espacos"
+    ),
 ]
